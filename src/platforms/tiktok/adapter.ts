@@ -7,7 +7,7 @@ import { openWorkTab, sendToTab } from "@/background/messaging";
 import type { PlatformAdapter, JobContext } from "@/platforms/types";
 import type { FindTargetResult, PingResponse } from "./messages";
 import { postCommentTrusted } from "./cdp";
-import { sourceUrl, userUrl, handleOf, looksLikeUser } from "./sources";
+import { sourceUrl, userUrl, handleOf } from "./sources";
 
 const HOME = "https://www.tiktok.com/foryou";
 const MIN_COMMENTS = 6;
@@ -104,9 +104,9 @@ async function runScroll(_ctx: JobContext): Promise<string> {
 }
 
 async function runFollow({ profile }: JobContext): Promise<string> {
-  const targets = profile.sources.filter(looksLikeUser);
+  const targets = profile.followTargets.filter((t) => t.trim().length > 0);
   if (targets.length === 0) {
-    throw new Error("Kênh chưa có tài khoản (dạng @user) trong Nguồn để follow.");
+    throw new Error('Kênh chưa có tài khoản nào trong ô "Tài khoản để follow".');
   }
   const done = new Set(profile.followedKeys.map((h) => h.toLowerCase()));
   const next = targets.find((t) => !done.has(handleOf(t)));

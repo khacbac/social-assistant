@@ -113,13 +113,31 @@ export function ChannelsPage({ state }: { state: AppState }) {
       </label>
 
       <label className="field">
-        <span>Nguồn (trống = For You; mỗi dòng 1 @user / #hashtag / URL)</span>
+        <span>Nguồn bình luận (trống = For You; mỗi dòng 1 @user / #hashtag / URL)</span>
         <textarea
           rows={3}
           value={draft.sources.join("\n")}
           onChange={(e) =>
             set(
               "sources",
+              e.target.value
+                .split("\n")
+                .map((s) => s.trim())
+                .filter(Boolean),
+            )
+          }
+        />
+      </label>
+
+      <label className="field">
+        <span>Tài khoản để follow (mỗi dòng 1 @user hoặc link trang TikTok)</span>
+        <textarea
+          rows={3}
+          placeholder="@username1&#10;@username2"
+          value={draft.followTargets.join("\n")}
+          onChange={(e) =>
+            set(
+              "followTargets",
               e.target.value
                 .split("\n")
                 .map((s) => s.trim())
