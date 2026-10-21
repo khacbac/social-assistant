@@ -17,6 +17,7 @@ export interface VideoTarget {
   postKey: string;
   author: string;
   caption: string;
+  hashtags: string[];
   commentCount: number;
 }
 
@@ -25,6 +26,11 @@ export type FindTargetResult =
   | { ok: true; target: VideoTarget }
   | { ok: true; skipped: true; reason: string }
   | { ok: false; error: string; scanned: number; lowComment: number; offTopic: number };
+
+/** Kết quả auto-follow từ For You. */
+export type AutoFollowResult =
+  | { ok: true; handle: string }
+  | { ok: false; error: string };
 
 /** Yêu cầu bg → content. */
 export type TiktokRequest =
@@ -41,7 +47,13 @@ export type TiktokRequest =
   | { type: "TT_COMMENT_STATUS"; beforeFp: string }
   | { type: "TT_CREATE_COMMENT"; text: string; postKey: string }
   | { type: "TT_SCROLL_FEED"; rounds: number; autoLike: boolean; likeDelay: number }
-  | { type: "TT_FOLLOW_USER" };
+  | {
+      type: "TT_AUTO_FOLLOW";
+      skipKeys: string[];
+      keywords: string[];
+      minRelevanceScore: number;
+      maxScrolls: number;
+    };
 
 export interface PingResponse {
   ok: true;

@@ -57,7 +57,6 @@ export function createIeltsProfile(): ChannelProfile {
       "\n\nContext: your channel is about IELTS / learning English. " +
       "Comment as an encouraging English learner or teacher; keep it supportive and specific.",
     sources: [],
-    followTargets: [],
     schedule: { ...DEFAULT_SCHEDULE },
     commentedKeys: [],
     followedKeys: [],
@@ -75,7 +74,6 @@ export function createBlankProfile(id: string, name: string): ChannelProfile {
     minRelevanceScore: 1,
     systemPrompt: DEFAULT_TIKTOK_PROMPT,
     sources: [],
-    followTargets: [],
     schedule: { ...DEFAULT_SCHEDULE },
     commentedKeys: [],
     followedKeys: [],

@@ -6,7 +6,7 @@
 import type { TiktokRequest } from "../messages";
 import { pageState, stateError, findCommentTarget } from "./context";
 import { prepareComment, commentStatus, createCommentSoft } from "./comment";
-import { scrollFeed, followUser } from "./feed";
+import { scrollFeed, autoFollow } from "./feed";
 
 declare global {
   interface Window {
@@ -68,8 +68,13 @@ if (!window.__SA_TT_CONTENT__) {
               likeDelay: message.likeDelay,
             })),
           };
-        case "TT_FOLLOW_USER":
-          return await followUser();
+        case "TT_AUTO_FOLLOW":
+          return await autoFollow({
+            skipKeys: message.skipKeys,
+            keywords: message.keywords,
+            minRelevanceScore: message.minRelevanceScore,
+            maxScrolls: message.maxScrolls,
+          });
         default:
           return { ok: false, error: `TikTok không xử lý lệnh ${(message as { type: string }).type}.` };
       }

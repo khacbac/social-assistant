@@ -28,6 +28,13 @@ export const TT = {
     '[data-e2e="video-like"]',
   ],
   followButton: ['[data-e2e="follow-button"]', '[data-e2e="browse-follow"]'],
+  /** Nút follow "+" ngay trên thẻ video For You. */
+  feedFollow: [
+    '[data-e2e="feed-follow"]',
+    '[data-e2e="follow-icon"]',
+    'button[aria-label*="Follow" i]',
+    'button[aria-label*="Theo dõi" i]',
+  ],
 } as const;
 
 /** Nối nhiều selector thành 1 chuỗi querySelector. */

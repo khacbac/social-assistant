@@ -2,18 +2,28 @@ import { sleep } from "@/core/humanize";
 import { log } from "@/core/log";
 import { updateState } from "@/core/storage";
 import { generate } from "@/ai/anthropic";
-import { buildTiktokCommentMessage, withLanguageDirective } from "@/ai/prompts";
+import { buildTiktokJudgeMessage, isSkip, withLanguageDirective } from "@/ai/prompts";
 import { openWorkTab, sendToTab } from "@/background/messaging";
 import type { PlatformAdapter, JobContext } from "@/platforms/types";
-import type { FindTargetResult, PingResponse } from "./messages";
+import type { AutoFollowResult, FindTargetResult, PingResponse } from "./messages";
 import { postCommentTrusted } from "./cdp";
-import { sourceUrl, userUrl, handleOf } from "./sources";
+import { sourceUrl } from "./sources";
 
 const HOME = "https://www.tiktok.com/foryou";
 const MIN_COMMENTS = 6;
 const MAX_SCROLLS = 20;
 const SCROLL_ROUNDS = 8;
 const LIKE_DELAY_SEC = 4;
+/** Số video tối đa đưa Haiku xét liên quan trong 1 lượt comment. */
+const MAX_AI_JUDGE = 4;
+/** Số lần lướt mỗi lần đi tìm candidate (nhỏ hơn để vòng judge không lướt quá xa). */
+const FIND_SCROLLS = 12;
+
+/** Mô tả chủ đề kênh cho Haiku xét liên quan. */
+function channelTopic(name: string, keywords: string[]): string {
+  const kw = keywords.slice(0, 10).join(", ");
+  return kw ? `${name} (keywords: ${kw})` : name;
+}
 
 interface SimpleResult {
   ok: boolean;
@@ -55,37 +65,63 @@ async function runComment({ profile, ai }: JobContext): Promise<string> {
   const ping = await sendToTab<PingResponse>(tabId, { type: "PING" });
   if (ping.state !== "ok") throw new Error("TikTok chưa sẵn sàng (đã đăng nhập chưa?).");
 
-  await log("info", "Đang lướt TikTok tìm video đủ bình luận và hợp chủ đề…");
-  const find = await sendToTab<FindTargetResult>(tabId, {
-    type: "TT_FIND_COMMENT_TARGET",
-    skipKeys: profile.commentedKeys,
-    minComments: MIN_COMMENTS,
-    maxScrolls: MAX_SCROLLS,
-    keywords: profile.keywords,
-    minRelevanceScore: profile.minRelevanceScore,
-  });
+  const topic = channelTopic(profile.name, profile.keywords);
+  const sys = withLanguageDirective(profile.systemPrompt, profile.commentLanguage);
+  // Bộ lọc thô (từ khoá) bắt rộng ở content; Haiku xét ngữ nghĩa cuối cùng.
+  // Video Haiku thấy lệch chủ đề thì thêm vào skip và tìm video kế.
+  const sessionSkip = [...profile.commentedKeys];
+  let judged = 0;
 
-  if (!find.ok) throw new Error(find.error);
-  if ("skipped" in find) return `Bỏ qua: ${find.reason}`;
+  while (judged < MAX_AI_JUDGE) {
+    await log("info", "Đang lướt tìm video hợp chủ đề…");
+    const find = await sendToTab<FindTargetResult>(tabId, {
+      type: "TT_FIND_COMMENT_TARGET",
+      skipKeys: sessionSkip,
+      minComments: MIN_COMMENTS,
+      maxScrolls: FIND_SCROLLS,
+      keywords: profile.keywords,
+      minRelevanceScore: profile.minRelevanceScore,
+    });
 
-  const t = find.target;
-  await log("info", `Video @${t.author || "?"} (${t.commentCount} bình luận). Gọi Haiku…`);
+    if (!find.ok) {
+      if (judged === 0) throw new Error(find.error);
+      return "Hết video phù hợp trong lượt này.";
+    }
+    if ("skipped" in find) return `Bỏ qua: ${find.reason}`;
 
-  const comment = await generate(
-    ai,
-    withLanguageDirective(profile.systemPrompt, profile.commentLanguage),
-    buildTiktokCommentMessage({ author: t.author, caption: t.caption }, ai.maxChars, profile.commentLanguage),
-  );
-  await log("info", `AI: "${comment}". Đang gõ như người thật…`);
+    const t = find.target;
+    judged += 1;
+    await log("info", `Haiku đang xét video @${t.author || "?"} (${t.commentCount} cmt)…`);
 
-  await typeComment(tabId, comment, t.postKey);
+    const out = await generate(
+      ai,
+      sys,
+      buildTiktokJudgeMessage(
+        { author: t.author, caption: t.caption, hashtags: t.hashtags },
+        ai.maxChars,
+        profile.commentLanguage,
+        topic,
+      ),
+    );
 
-  await updateState((draft) => {
-    const p = draft.profiles.find((x) => x.id === profile.id);
-    if (p) p.commentedKeys = [t.postKey, ...p.commentedKeys.filter((k) => k !== t.postKey)];
-  });
+    if (isSkip(out)) {
+      await log("info", `Haiku thấy @${t.author || "?"} lệch chủ đề → bỏ qua.`);
+      sessionSkip.push(t.postKey);
+      continue;
+    }
 
-  return `Đã bình luận (${t.commentCount} cmt): ${comment}`;
+    await log("info", `AI: "${out}". Đang gõ như người thật…`);
+    await typeComment(tabId, out, t.postKey);
+
+    await updateState((draft) => {
+      const p = draft.profiles.find((x) => x.id === profile.id);
+      if (p) p.commentedKeys = [t.postKey, ...p.commentedKeys.filter((k) => k !== t.postKey)];
+    });
+
+    return `Đã bình luận (${t.commentCount} cmt): ${out}`;
+  }
+
+  return `Đã xét ${judged} video nhưng Haiku đều thấy lệch chủ đề. Thử lại lượt sau.`;
 }
 
 async function runScroll(_ctx: JobContext): Promise<string> {
@@ -104,28 +140,29 @@ async function runScroll(_ctx: JobContext): Promise<string> {
 }
 
 async function runFollow({ profile }: JobContext): Promise<string> {
-  const targets = profile.followTargets.filter((t) => t.trim().length > 0);
-  if (targets.length === 0) {
-    throw new Error('Kênh chưa có tài khoản nào trong ô "Tài khoản để follow".');
-  }
-  const done = new Set(profile.followedKeys.map((h) => h.toLowerCase()));
-  const next = targets.find((t) => !done.has(handleOf(t)));
-  if (!next) return "Đã follow hết các tài khoản trong danh sách.";
-
-  const tab = await openWorkTab("tiktok", userUrl(next), true);
+  const tab = await openWorkTab("tiktok", HOME, true);
   const tabId = requireTabId(tab);
   await sleep(2500);
 
-  const res = await sendToTab<SimpleResult>(tabId, { type: "TT_FOLLOW_USER" });
-  if (!res.ok) throw new Error(res.error || "Follow thất bại.");
+  const ping = await sendToTab<PingResponse>(tabId, { type: "PING" });
+  if (ping.state !== "ok") throw new Error("TikTok chưa sẵn sàng (đã đăng nhập chưa?).");
 
-  const handle = handleOf(next);
+  await log("info", "Đang lướt For You tìm creator hợp chủ đề chưa follow…");
+  const res = await sendToTab<AutoFollowResult>(tabId, {
+    type: "TT_AUTO_FOLLOW",
+    skipKeys: profile.followedKeys,
+    keywords: profile.keywords,
+    minRelevanceScore: profile.minRelevanceScore,
+    maxScrolls: MAX_SCROLLS,
+  });
+  if (!res.ok) throw new Error(res.error);
+
   await updateState((draft) => {
     const p = draft.profiles.find((x) => x.id === profile.id);
-    if (p) p.followedKeys = [handle, ...p.followedKeys.filter((k) => k !== handle)];
+    if (p) p.followedKeys = [res.handle, ...p.followedKeys.filter((k) => k !== res.handle)];
   });
 
-  return res.skipped ? `@${handle} đã theo dõi từ trước.` : `Đã follow @${handle}.`;
+  return `Đã follow @${res.handle}.`;
 }
 
 export const tiktokAdapter: PlatformAdapter = {

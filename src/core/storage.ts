@@ -47,7 +47,6 @@ function normalizeProfile(p: ChannelProfile): ChannelProfile {
     commentLanguage: p.commentLanguage ?? "vi",
     keywords: p.keywords ?? [],
     sources: p.sources ?? [],
-    followTargets: p.followTargets ?? [],
     commentedKeys: p.commentedKeys ?? [],
     followedKeys: p.followedKeys ?? [],
   };

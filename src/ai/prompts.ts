@@ -4,6 +4,43 @@ import type { CommentLanguage } from "@/core/types";
 export interface VideoContext {
   author?: string;
   caption?: string;
+  hashtags?: string[];
+}
+
+/** Từ khoá AI trả về khi thấy video lệch chủ đề. */
+export const SKIP_SENTINEL = "SKIP";
+
+/** Câu trả lời của AI có phải "bỏ qua" không. */
+export function isSkip(text: string): boolean {
+  return /^skip\b/i.test(text.trim());
+}
+
+/**
+ * Dựng user message vừa XÉT liên quan vừa sinh comment trong 1 call:
+ * AI tự quyết video có hợp chủ đề kênh không; lệch thì trả về SKIP.
+ */
+export function buildTiktokJudgeMessage(
+  ctx: VideoContext,
+  maxChars: number,
+  language: CommentLanguage,
+  topic: string,
+): string {
+  const lines = [
+    "TikTok video:",
+    ctx.author ? `Author: @${ctx.author}` : "",
+    ctx.caption?.trim() ? `Caption: ${ctx.caption.trim()}` : "",
+    ctx.hashtags?.length ? `Hashtags: ${ctx.hashtags.map((h) => `#${h}`).join(" ")}` : "",
+    "",
+    `Channel topic: ${topic}`,
+    "",
+    "Decide if this video is genuinely related to the channel topic above.",
+    `- If it is NOT related, reply with exactly: ${SKIP_SENTINEL}`,
+    language === "en"
+      ? `- If it IS related, write ONE short, natural comment in ENGLISH (max ${maxChars} chars). Return only the comment.`
+      : `- If it IS related, write ONE short, natural comment in VIETNAMESE (max ${maxChars} chars). Return only the comment.`,
+    "No markdown, no quotes, no explanation.",
+  ];
+  return lines.filter((l) => l !== "").join("\n");
 }
 
 /**

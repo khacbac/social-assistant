@@ -1,6 +1,19 @@
 import { randInt } from "@/core/humanize";
+import { isRelevant } from "@/ai/relevance";
 import { TT } from "../selectors";
-import { q, qa, textOf, visible, clickEl, clickAt, waitFor, sleep, videoIdFrom } from "./dom";
+import type { AutoFollowResult } from "../messages";
+import {
+  q,
+  qa,
+  textOf,
+  visible,
+  clickEl,
+  clickAt,
+  waitFor,
+  sleep,
+  videoIdFrom,
+  currentVideoCard,
+} from "./dom";
 
 export function closeCommentPanel(): void {
   const close = document.querySelector(
@@ -72,23 +85,62 @@ export async function scrollFeed(opts: {
   return { scrolled, likedCount };
 }
 
-export async function followUser(): Promise<{ ok: true; skipped?: boolean }> {
-  await sleep(1000);
-  const btns = qa(TT.followButton).concat([...document.querySelectorAll("button")]);
-  const followBtn = btns.find(
-    (el) =>
-      visible(el) &&
-      /follow|theo dõi/i.test(textOf(el)) &&
-      !/following|đang follow|bạn bè/i.test(textOf(el)),
-  );
-  if (!followBtn) {
-    const already = [...document.querySelectorAll("button")].find((el) =>
-      /following|đang follow/i.test(textOf(el)),
-    );
-    if (already) return { ok: true, skipped: true };
-    throw new Error("Không tìm thấy nút Follow trên trang TikTok này.");
+/** Nút follow "+" của riêng 1 thẻ video, chỉ trả về khi CHƯA follow. */
+function cardFollowButton(card: Element | null): HTMLElement | null {
+  const root = card ?? document;
+  const cands = [...qa(TT.feedFollow, root), ...qa(TT.followButton, root)];
+  const btn = cands.find((el) => {
+    if (!visible(el)) return false;
+    const label = `${textOf(el)} ${el.getAttribute("aria-label") || ""}`.toLowerCase();
+    if (/following|đang follow|bạn bè|friends/.test(label)) return false;
+    return true;
+  });
+  return (btn as HTMLElement | undefined) ?? null;
+}
+
+/**
+ * Tự lướt For You, gặp creator đăng video HỢP CHỦ ĐỀ và CHƯA follow thì follow.
+ * Mỗi lần gọi follow tối đa 1 người (giữ giãn cách tự nhiên).
+ */
+export async function autoFollow(opts: {
+  skipKeys: string[];
+  keywords: string[];
+  minRelevanceScore: number;
+  maxScrolls: number;
+}): Promise<AutoFollowResult> {
+  const skip = new Set(opts.skipKeys.map((k) => k.toLowerCase()));
+  await sleep(600);
+
+  for (let i = 0; i < opts.maxScrolls; i += 1) {
+    const card = currentVideoCard();
+    const author = textOf(q(TT.author, card ?? document)).replace(/^@/, "");
+    const caption = textOf(q(TT.caption, card ?? document));
+    const handle = author.toLowerCase();
+
+    if (!handle || skip.has(handle)) {
+      await goToNextVideo();
+      continue;
+    }
+    if (!isRelevant(`${author} ${caption}`, opts.keywords, opts.minRelevanceScore)) {
+      await goToNextVideo();
+      continue;
+    }
+
+    const btn = cardFollowButton(card);
+    if (!btn) {
+      // Không có nút "+" khả dụng → có thể đã follow rồi → bỏ qua.
+      skip.add(handle);
+      await goToNextVideo();
+      continue;
+    }
+
+    clickEl(btn);
+    await sleep(1200);
+    return { ok: true, handle };
   }
-  clickEl(followBtn);
-  await sleep(1200);
-  return { ok: true };
+
+  return {
+    ok: false,
+    error: `Đã lướt ${opts.maxScrolls} video nhưng không gặp creator hợp chủ đề chưa follow.`,
+  };
 }

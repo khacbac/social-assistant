@@ -3,6 +3,7 @@ import { TT } from "../selectors";
 import type { FindTargetResult, TiktokPageState } from "../messages";
 import {
   q,
+  qa,
   textOf,
   visible,
   parseCount,
@@ -16,7 +17,22 @@ interface Candidate {
   postKey: string;
   author: string;
   caption: string;
+  hashtags: string[];
   commentCount: number;
+}
+
+/** Trích hashtag từ thẻ video (link /tag/) + từ caption (#...). */
+function extractHashtags(card: Element | null, caption: string): string[] {
+  const set = new Set<string>();
+  const root = card ?? document;
+  for (const a of qa(['a[href*="/tag/"]'], root)) {
+    const t = textOf(a).replace(/^#/, "").trim();
+    if (t) set.add(t.toLowerCase());
+  }
+  for (const m of caption.matchAll(/#([\p{L}\p{N}_]+)/gu)) {
+    if (m[1]) set.add(m[1].toLowerCase());
+  }
+  return [...set];
 }
 
 export function pageState(): TiktokPageState {
@@ -58,7 +74,8 @@ export function extractCurrent(): Candidate | null {
   const postKey =
     videoId || `${location.pathname}-${(caption || document.title).slice(0, 40)}`.toLowerCase();
   if (!author && !caption) return null;
-  return { postKey, author, caption, commentCount: currentCommentCount() };
+  const hashtags = extractHashtags(card, caption);
+  return { postKey, author, caption, hashtags, commentCount: currentCommentCount() };
 }
 
 /**
@@ -102,7 +119,8 @@ export async function findCommentTarget(opts: {
       continue;
     }
 
-    const haystack = `${cand.author} ${cand.caption}`;
+    // Bộ lọc thô, bắt rộng: caption + hashtag + author. Haiku xét lại ở background.
+    const haystack = `${cand.author} ${cand.caption} ${cand.hashtags.join(" ")}`;
     if (!isRelevant(haystack, opts.keywords, opts.minRelevanceScore)) {
       offTopic += 1;
       await goToNextVideo();

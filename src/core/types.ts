@@ -51,8 +51,6 @@ export interface ChannelProfile {
   systemPrompt: string;
   /** Nguồn video để bình luận. [] = For You. Hoặc @user / #hashtag / URL. */
   sources: string[];
-  /** Danh sách tài khoản để job follow đi theo (mỗi dòng 1 @user / URL). */
-  followTargets: string[];
   schedule: ScheduleConfig;
   /** Khoá các video đã bình luận (dedupe), mới nhất đứng đầu. */
   commentedKeys: string[];
