@@ -37,9 +37,9 @@ async function handleCommand(cmd: Command): Promise<CommandResult> {
     case "START_JOB": {
       const state = await getState();
       const profile = state.profiles.find(
-        (p) => p.id === state.activeProfileId && p.platform === cmd.platform,
+        (p) => p.id === state.activeProfileId[cmd.platform] && p.platform === cmd.platform,
       );
-      if (!profile) return { ok: false, error: "Chưa chọn kênh hoạt động." };
+      if (!profile) return { ok: false, error: `Chưa chọn kênh ${cmd.platform} hoạt động.` };
       await startJob(cmd.platform, cmd.kind, profile.schedule);
       return { ok: true };
     }
@@ -58,16 +58,19 @@ async function handleCommand(cmd: Command): Promise<CommandResult> {
 
     case "DELETE_PROFILE":
       await updateState((draft) => {
+        const gone = draft.profiles.find((p) => p.id === cmd.id);
         draft.profiles = draft.profiles.filter((p) => p.id !== cmd.id);
-        if (draft.activeProfileId === cmd.id) {
-          draft.activeProfileId = draft.profiles[0]?.id ?? null;
+        if (gone && draft.activeProfileId[gone.platform] === cmd.id) {
+          draft.activeProfileId[gone.platform] =
+            draft.profiles.find((p) => p.platform === gone.platform)?.id ?? null;
         }
       });
       return { ok: true };
 
     case "SET_ACTIVE_PROFILE":
       await updateState((draft) => {
-        draft.activeProfileId = cmd.id;
+        const p = draft.profiles.find((x) => x.id === cmd.id);
+        if (p) draft.activeProfileId[p.platform] = cmd.id;
       });
       return { ok: true };
 

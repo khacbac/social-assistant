@@ -1,8 +1,9 @@
 import {
   DEFAULT_AI_SETTINGS,
+  JOB_KINDS,
+  PLATFORMS,
   type AppState,
   type ChannelProfile,
-  type JobKind,
   type PlatformId,
   type PlatformRuntime,
 } from "./types";
@@ -12,9 +13,6 @@ const STORAGE_KEY = "social-assistant:state";
 const MAX_LOGS = 300;
 const MAX_HISTORY = 400;
 
-const JOB_KINDS: JobKind[] = ["comment", "scroll", "follow"];
-const PLATFORMS: PlatformId[] = ["tiktok"];
-
 function emptyPlatformRuntime(): PlatformRuntime {
   return JOB_KINDS.reduce((acc, kind) => {
     acc[kind] = { enabled: false, nextAt: null };
@@ -22,20 +20,21 @@ function emptyPlatformRuntime(): PlatformRuntime {
   }, {} as PlatformRuntime);
 }
 
+function perPlatform<T>(make: () => T): Record<PlatformId, T> {
+  return PLATFORMS.reduce((acc, p) => {
+    acc[p] = make();
+    return acc;
+  }, {} as Record<PlatformId, T>);
+}
+
 export function defaultState(): AppState {
   const ielts = createIeltsProfile();
   return {
     profiles: [ielts],
-    activeProfileId: ielts.id,
+    activeProfileId: { ...perPlatform<string | null>(() => null), tiktok: ielts.id },
     ai: { ...DEFAULT_AI_SETTINGS },
-    runtime: PLATFORMS.reduce((acc, p) => {
-      acc[p] = emptyPlatformRuntime();
-      return acc;
-    }, {} as Record<PlatformId, PlatformRuntime>),
-    workTabId: PLATFORMS.reduce((acc, p) => {
-      acc[p] = null;
-      return acc;
-    }, {} as Record<PlatformId, number | null>),
+    runtime: perPlatform(emptyPlatformRuntime),
+    workTabId: perPlatform<number | null>(() => null),
     logs: [],
   };
 }
@@ -53,6 +52,33 @@ function normalizeProfile(p: ChannelProfile): ChannelProfile {
   };
 }
 
+/** Đảm bảo đủ platform + job kind (state cũ có thể thiếu). */
+function normalizeRuntime(
+  raw: Partial<Record<PlatformId, Partial<PlatformRuntime>>> | undefined,
+): Record<PlatformId, PlatformRuntime> {
+  return PLATFORMS.reduce((acc, p) => {
+    const rt = raw?.[p] ?? {};
+    acc[p] = JOB_KINDS.reduce((r, k) => {
+      r[k] = rt[k] ?? { enabled: false, nextAt: null };
+      return r;
+    }, {} as PlatformRuntime);
+    return acc;
+  }, {} as Record<PlatformId, PlatformRuntime>);
+}
+
+/** Di chuyển activeProfileId cũ (string) sang dạng theo platform. */
+function normalizeActive(raw: unknown): Record<PlatformId, string | null> {
+  const base = perPlatform<string | null>(() => null);
+  if (typeof raw === "string") return { ...base, tiktok: raw };
+  if (raw && typeof raw === "object") {
+    for (const p of PLATFORMS) {
+      const v = (raw as Record<string, unknown>)[p];
+      base[p] = typeof v === "string" ? v : null;
+    }
+  }
+  return base;
+}
+
 /** Trộn state đọc từ storage với default để không vỡ khi nâng cấp schema. */
 function hydrate(raw: Partial<AppState> | undefined): AppState {
   const base = defaultState();
@@ -60,9 +86,10 @@ function hydrate(raw: Partial<AppState> | undefined): AppState {
   return {
     ...base,
     ...raw,
+    activeProfileId: normalizeActive(raw.activeProfileId),
     ai: { ...base.ai, ...raw.ai },
     profiles: (raw.profiles?.length ? raw.profiles : base.profiles).map(normalizeProfile),
-    runtime: { ...base.runtime, ...raw.runtime },
+    runtime: normalizeRuntime(raw.runtime),
     workTabId: { ...base.workTabId, ...raw.workTabId },
     logs: (raw.logs ?? []).slice(0, MAX_LOGS),
   };

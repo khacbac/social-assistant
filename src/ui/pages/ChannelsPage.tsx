@@ -4,28 +4,45 @@ import {
   type AppState,
   type ChannelProfile,
   type CommentLanguage,
+  type PlatformId,
 } from "@/core/types";
 import { sendCommand } from "@/core/rpc";
 import { createBlankProfile } from "@/core/profiles";
 
+const PLATFORM_LABELS: Record<PlatformId, string> = {
+  tiktok: "TikTok",
+  youtube: "YouTube",
+};
+
 export function ChannelsPage({ state }: { state: AppState }) {
+  const [selectedId, setSelectedId] = useState<string | null>(state.profiles[0]?.id ?? null);
   const [draft, setDraft] = useState<ChannelProfile | null>(null);
 
-  const active =
-    state.profiles.find((p) => p.id === state.activeProfileId) ??
-    state.profiles[0] ??
-    null;
+  const selected =
+    state.profiles.find((p) => p.id === selectedId) ?? state.profiles[0] ?? null;
 
-  // Đồng bộ draft khi đổi kênh active (giữ chỉnh sửa dở nếu cùng id).
   useEffect(() => {
-    setDraft((prev) => (prev && prev.id === active?.id ? prev : active ? { ...active } : null));
-  }, [active]);
+    setDraft((prev) => (prev && prev.id === selected?.id ? prev : selected ? { ...selected } : null));
+  }, [selected]);
+
+  const addChannel = async (platform: PlatformId) => {
+    const id = `ch-${Date.now()}`;
+    const count = state.profiles.filter((p) => p.platform === platform).length + 1;
+    await sendCommand({
+      type: "SAVE_PROFILE",
+      profile: createBlankProfile(id, `${PLATFORM_LABELS[platform]} ${count}`, platform),
+    });
+    setSelectedId(id);
+  };
 
   if (!draft) {
     return (
-      <section>
+      <section className="stack">
         <p className="muted">Chưa có kênh nào.</p>
-        <button onClick={() => void addChannel(state)}>+ Thêm kênh</button>
+        <div className="row">
+          <button onClick={() => void addChannel("tiktok")}>+ Kênh TikTok</button>
+          <button onClick={() => void addChannel("youtube")}>+ Kênh YouTube</button>
+        </div>
       </section>
     );
   }
@@ -33,26 +50,26 @@ export function ChannelsPage({ state }: { state: AppState }) {
   const set = <K extends keyof ChannelProfile>(key: K, value: ChannelProfile[K]) =>
     setDraft({ ...draft, [key]: value });
 
+  const isYouTube = draft.platform === "youtube";
+
   return (
     <section className="stack">
       <div className="row">
         <label className="field">
-          <span>Kênh đang hoạt động</span>
-          <select
-            value={state.activeProfileId ?? ""}
-            onChange={(e) =>
-              void sendCommand({ type: "SET_ACTIVE_PROFILE", id: e.target.value })
-            }
-          >
+          <span>Sửa kênh</span>
+          <select value={selected?.id ?? ""} onChange={(e) => setSelectedId(e.target.value)}>
             {state.profiles.map((p) => (
               <option key={p.id} value={p.id}>
-                {p.name}
+                [{PLATFORM_LABELS[p.platform]}] {p.name}
               </option>
             ))}
           </select>
         </label>
-        <button className="ghost" onClick={() => void addChannel(state)}>
-          + Thêm kênh
+        <button className="ghost" onClick={() => void addChannel("tiktok")}>
+          + TikTok
+        </button>
+        <button className="ghost" onClick={() => void addChannel("youtube")}>
+          + YouTube
         </button>
       </div>
 
@@ -60,6 +77,10 @@ export function ChannelsPage({ state }: { state: AppState }) {
         <label className="field">
           <span>Tên kênh</span>
           <input value={draft.name} onChange={(e) => set("name", e.target.value)} />
+        </label>
+        <label className="field">
+          <span>Nền tảng</span>
+          <input value={PLATFORM_LABELS[draft.platform]} disabled />
         </label>
         <label className="field">
           <span>Ngôn ngữ comment</span>
@@ -87,7 +108,11 @@ export function ChannelsPage({ state }: { state: AppState }) {
       </label>
 
       <label className="field">
-        <span>Từ khoá (chỉ dùng cho job Follow để lọc nhanh; comment do AI xét)</span>
+        <span>
+          {isYouTube
+            ? "Từ khoá (fallback nếu ô Nguồn trống)"
+            : "Từ khoá (chỉ dùng cho job Follow; comment do AI xét)"}
+        </span>
         <textarea
           rows={2}
           value={draft.keywords.join(", ")}
@@ -113,7 +138,11 @@ export function ChannelsPage({ state }: { state: AppState }) {
       </label>
 
       <label className="field">
-        <span>Nguồn bình luận (trống = For You; mỗi dòng 1 @user / #hashtag / URL)</span>
+        <span>
+          {isYouTube
+            ? "Câu tìm kiếm YouTube (mỗi dòng 1 query, vd: ielts speaking tips)"
+            : "Nguồn bình luận (trống = For You; mỗi dòng 1 @user / #hashtag / URL)"}
+        </span>
         <textarea
           rows={3}
           value={draft.sources.join("\n")}
@@ -158,7 +187,7 @@ export function ChannelsPage({ state }: { state: AppState }) {
       </fieldset>
 
       <div className="row">
-        <button onClick={() => void sendCommand({ type: "SAVE_PROFILE", profile: draft })}>
+        <button className="primary" onClick={() => void sendCommand({ type: "SAVE_PROFILE", profile: draft })}>
           Lưu kênh
         </button>
         {state.profiles.length > 1 && (
@@ -172,11 +201,4 @@ export function ChannelsPage({ state }: { state: AppState }) {
       </div>
     </section>
   );
-}
-
-async function addChannel(state: AppState): Promise<void> {
-  const id = `ch-${Date.now()}`;
-  const profile = createBlankProfile(id, `Kênh ${state.profiles.length + 1}`);
-  await sendCommand({ type: "SAVE_PROFILE", profile });
-  await sendCommand({ type: "SET_ACTIVE_PROFILE", id });
 }

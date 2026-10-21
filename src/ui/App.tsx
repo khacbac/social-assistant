@@ -1,17 +1,30 @@
 import { useState } from "react";
 import { useAppState } from "./useAppState";
 import { ChannelsPage } from "./pages/ChannelsPage";
-import { TikTokPage } from "./pages/TikTokPage";
+import { PlatformJobsPage, type JobDef } from "./pages/PlatformJobsPage";
 import { LogsPage } from "./pages/LogsPage";
 import { SettingsPage } from "./pages/SettingsPage";
 
-type Tab = "channels" | "tiktok" | "logs" | "settings";
+type Tab = "channels" | "tiktok" | "youtube" | "logs" | "settings";
 
 const TABS: { id: Tab; label: string }[] = [
   { id: "channels", label: "Kênh" },
   { id: "tiktok", label: "TikTok" },
+  { id: "youtube", label: "YouTube" },
   { id: "logs", label: "Nhật ký" },
   { id: "settings", label: "Cài đặt" },
+];
+
+const TIKTOK_JOBS: JobDef[] = [
+  { kind: "comment", label: "Bình luận AI", desc: "Lọc video hợp chủ đề (Haiku) → bình luận." },
+  { kind: "scroll", label: "Lướt & thả tim", desc: "Lướt For You và thả tim tự nhiên." },
+  { kind: "follow", label: "Follow", desc: "Tự follow creator hợp chủ đề trên For You." },
+];
+
+const YOUTUBE_JOBS: JobDef[] = [
+  { kind: "comment", label: "Bình luận AI", desc: "Tìm theo từ khoá → Haiku xét → bình luận." },
+  { kind: "like", label: "Like video", desc: "Tìm theo từ khoá và like video." },
+  { kind: "subscribe", label: "Subscribe", desc: "Subscribe kênh của video hợp chủ đề." },
 ];
 
 export function App() {
@@ -22,7 +35,7 @@ export function App() {
     <div className="app">
       <header className="app__header">
         <h1>Social Assistant</h1>
-        <span className="app__sub">Trợ lý tương tác bằng nick của bạn · v1 TikTok</span>
+        <span className="app__sub">Trợ lý tương tác bằng nick của bạn · TikTok + YouTube</span>
       </header>
 
       <nav className="tabs">
@@ -43,7 +56,9 @@ export function App() {
         ) : tab === "channels" ? (
           <ChannelsPage state={state} />
         ) : tab === "tiktok" ? (
-          <TikTokPage state={state} />
+          <PlatformJobsPage state={state} platform="tiktok" jobs={TIKTOK_JOBS} />
+        ) : tab === "youtube" ? (
+          <PlatformJobsPage state={state} platform="youtube" jobs={YOUTUBE_JOBS} />
         ) : tab === "logs" ? (
           <LogsPage state={state} />
         ) : (

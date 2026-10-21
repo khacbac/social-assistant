@@ -1,4 +1,4 @@
-import { DEFAULT_SCHEDULE, type ChannelProfile } from "./types";
+import { DEFAULT_SCHEDULE, type ChannelProfile, type PlatformId } from "./types";
 
 /** Prompt mặc định cho kênh TikTok tiếng Việt. */
 export const DEFAULT_TIKTOK_PROMPT = `Bạn là người Việt đang lướt TikTok trên điện thoại. Bạn KHÔNG phải AI, KHÔNG phải bot.
@@ -68,11 +68,15 @@ export function createIeltsProfile(): ChannelProfile {
   };
 }
 
-export function createBlankProfile(id: string, name: string): ChannelProfile {
+export function createBlankProfile(
+  id: string,
+  name: string,
+  platform: PlatformId = "tiktok",
+): ChannelProfile {
   return {
     id,
     name,
-    platform: "tiktok",
+    platform,
     commentLanguage: "vi",
     topic: "",
     keywords: [],

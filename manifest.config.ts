@@ -7,6 +7,8 @@ const TIKTOK_MATCHES = [
   "https://*.tiktok.com/*",
 ];
 
+const YOUTUBE_MATCHES = ["https://www.youtube.com/*", "https://youtube.com/*"];
+
 export default defineManifest({
   manifest_version: 3,
   name: "Social Assistant",
@@ -29,7 +31,7 @@ export default defineManifest({
     open_in_tab: true,
   },
   permissions: ["storage", "alarms", "tabs", "scripting", "debugger"],
-  host_permissions: [...TIKTOK_MATCHES, "https://api.anthropic.com/*"],
+  host_permissions: [...TIKTOK_MATCHES, ...YOUTUBE_MATCHES, "https://api.anthropic.com/*"],
   content_scripts: [
     {
       matches: TIKTOK_MATCHES,
@@ -41,6 +43,11 @@ export default defineManifest({
       js: ["src/platforms/tiktok/page/typer.iife.ts"],
       run_at: "document_start",
       world: "MAIN",
+    },
+    {
+      matches: YOUTUBE_MATCHES,
+      js: ["src/platforms/youtube/content/index.ts"],
+      run_at: "document_idle",
     },
   ],
 });

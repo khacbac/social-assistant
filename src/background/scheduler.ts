@@ -57,7 +57,7 @@ export async function handleAlarm(name: string): Promise<void> {
   const state = await getState();
   if (!state.runtime[platform][kind].enabled) return;
   const profile = state.profiles.find(
-    (p) => p.id === state.activeProfileId && p.platform === platform,
+    (p) => p.id === state.activeProfileId[platform] && p.platform === platform,
   );
   await scheduleNext(platform, kind, profile?.schedule ?? DEFAULT_SCHEDULE);
 }

@@ -56,6 +56,32 @@ export function withLanguageDirective(systemPrompt: string, language: CommentLan
   return systemPrompt.trim() + directive;
 }
 
+/** Judge + comment cho YouTube (metadata giàu hơn: title + mô tả + kênh). */
+export function buildYoutubeJudgeMessage(
+  ctx: { title: string; description?: string; channel?: string },
+  maxChars: number,
+  language: CommentLanguage,
+  topic: string,
+): string {
+  const lines = [
+    "YouTube video:",
+    `Title: ${ctx.title}`,
+    ctx.channel ? `Channel: ${ctx.channel}` : "",
+    ctx.description?.trim() ? `Description: ${ctx.description.trim()}` : "",
+    "",
+    `Channel topic: ${topic}`,
+    "",
+    "Decide if this video relates to the channel topic above.",
+    "Be generous: if it touches the topic in any way, treat it as related. Only skip clearly unrelated videos.",
+    `- If it is NOT related at all, reply with exactly: ${SKIP_SENTINEL}`,
+    language === "en"
+      ? `- If it IS related, write ONE short, natural comment in ENGLISH (max ${maxChars} chars). Return only the comment.`
+      : `- If it IS related, write ONE short, natural comment in VIETNAMESE (max ${maxChars} chars). Return only the comment.`,
+    "No markdown, no quotes, no explanation.",
+  ];
+  return lines.filter((l) => l !== "").join("\n");
+}
+
 /** Dựng user message cho job bình luận TikTok. */
 export function buildTiktokCommentMessage(
   ctx: VideoContext,

@@ -1,8 +1,12 @@
-/** Nền tảng được hỗ trợ. v1 chỉ TikTok; thêm nền tảng = thêm giá trị ở đây. */
-export type PlatformId = "tiktok";
+/** Nền tảng được hỗ trợ. Thêm nền tảng = thêm giá trị ở đây. */
+export type PlatformId = "tiktok" | "youtube";
 
-/** Các loại job một nền tảng có thể chạy. */
-export type JobKind = "comment" | "scroll" | "follow";
+export const PLATFORMS: PlatformId[] = ["tiktok", "youtube"];
+
+/** Tất cả loại job (hợp của mọi nền tảng). Mỗi adapter chỉ làm phần của mình. */
+export type JobKind = "comment" | "scroll" | "follow" | "like" | "subscribe";
+
+export const JOB_KINDS: JobKind[] = ["comment", "scroll", "follow", "like", "subscribe"];
 
 /** Ngôn ngữ comment của 1 kênh. */
 export type CommentLanguage = "vi" | "en";
@@ -90,7 +94,8 @@ export interface LogEntry {
 /** Toàn bộ state được lưu trong chrome.storage.local. */
 export interface AppState {
   profiles: ChannelProfile[];
-  activeProfileId: string | null;
+  /** Kênh đang hoạt động theo từng nền tảng. */
+  activeProfileId: Record<PlatformId, string | null>;
   ai: AiSettings;
   runtime: Record<PlatformId, PlatformRuntime>;
   workTabId: Record<PlatformId, number | null>;

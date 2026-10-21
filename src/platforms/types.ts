@@ -9,10 +9,10 @@ export interface JobContext {
 /** Một job trả về mô tả ngắn kết quả để ghi log. */
 export type JobRunner = (ctx: JobContext) => Promise<string>;
 
-/** Adapter cho 1 nền tảng: khai báo trang chủ + các job runner. */
+/** Adapter cho 1 nền tảng: khai báo trang chủ + các job runner (chỉ phần của mình). */
 export interface PlatformAdapter {
   id: PlatformId;
   /** URL mở tab làm việc mặc định. */
   homeUrl: string;
-  jobs: Record<JobKind, JobRunner>;
+  jobs: Partial<Record<JobKind, JobRunner>>;
 }
