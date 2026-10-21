@@ -25,7 +25,7 @@ export interface VideoTarget {
 export type FindTargetResult =
   | { ok: true; target: VideoTarget }
   | { ok: true; skipped: true; reason: string }
-  | { ok: false; error: string; scanned: number; lowComment: number; offTopic: number };
+  | { ok: false; error: string; scanned: number; lowComment: number };
 
 /** Kết quả auto-follow từ For You. */
 export type AutoFollowResult =
@@ -40,8 +40,6 @@ export type TiktokRequest =
       skipKeys: string[];
       minComments: number;
       maxScrolls: number;
-      keywords: string[];
-      minRelevanceScore: number;
     }
   | { type: "TT_PREPARE_COMMENT" }
   | { type: "TT_COMMENT_STATUS"; beforeFp: string }

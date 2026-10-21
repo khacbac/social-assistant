@@ -65,7 +65,7 @@ async function runComment({ profile, ai }: JobContext): Promise<string> {
   const ping = await sendToTab<PingResponse>(tabId, { type: "PING" });
   if (ping.state !== "ok") throw new Error("TikTok chưa sẵn sàng (đã đăng nhập chưa?).");
 
-  const topic = channelTopic(profile.name, profile.keywords);
+  const topic = profile.topic.trim() || channelTopic(profile.name, profile.keywords);
   const sys = withLanguageDirective(profile.systemPrompt, profile.commentLanguage);
   // Bộ lọc thô (từ khoá) bắt rộng ở content; Haiku xét ngữ nghĩa cuối cùng.
   // Video Haiku thấy lệch chủ đề thì thêm vào skip và tìm video kế.
@@ -79,8 +79,6 @@ async function runComment({ profile, ai }: JobContext): Promise<string> {
       skipKeys: sessionSkip,
       minComments: MIN_COMMENTS,
       maxScrolls: FIND_SCROLLS,
-      keywords: profile.keywords,
-      minRelevanceScore: profile.minRelevanceScore,
     });
 
     if (!find.ok) {

@@ -41,7 +41,9 @@ export interface ChannelProfile {
   platform: PlatformId;
   /** Ngôn ngữ viết comment. */
   commentLanguage: CommentLanguage;
-  /** Từ khoá dùng để lọc video đúng chủ đề (lọc mềm). */
+  /** Mô tả chủ đề kênh cho Haiku xét liên quan (rộng, tự nhiên). */
+  topic: string;
+  /** Từ khoá — dùng cho lọc thô job follow (comment để Haiku xét). */
   keywords: string[];
   /** v1 chỉ hỗ trợ "soft". */
   relevanceMode: "soft";

@@ -40,8 +40,6 @@ if (!window.__SA_TT_CONTENT__) {
           skipKeys: message.skipKeys,
           minComments: message.minComments,
           maxScrolls: message.maxScrolls,
-          keywords: message.keywords,
-          minRelevanceScore: message.minRelevanceScore,
         });
       case "TT_COMMENT_STATUS":
         return commentStatus(message.beforeFp);

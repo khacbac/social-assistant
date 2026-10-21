@@ -45,6 +45,7 @@ function normalizeProfile(p: ChannelProfile): ChannelProfile {
   return {
     ...p,
     commentLanguage: p.commentLanguage ?? "vi",
+    topic: p.topic ?? "",
     keywords: p.keywords ?? [],
     sources: p.sources ?? [],
     commentedKeys: p.commentedKeys ?? [],

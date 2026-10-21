@@ -77,7 +77,17 @@ export function ChannelsPage({ state }: { state: AppState }) {
       </div>
 
       <label className="field">
-        <span>Từ khoá lọc video (cách nhau dấu phẩy)</span>
+        <span>Chủ đề kênh — AI dùng để xét video có hợp hay không (mô tả tự nhiên)</span>
+        <textarea
+          rows={3}
+          placeholder="VD: Bất cứ thứ gì liên quan tiếng Anh — IELTS, từ vựng, ngữ pháp, phát âm, giao tiếp…"
+          value={draft.topic}
+          onChange={(e) => set("topic", e.target.value)}
+        />
+      </label>
+
+      <label className="field">
+        <span>Từ khoá (chỉ dùng cho job Follow để lọc nhanh; comment do AI xét)</span>
         <textarea
           rows={2}
           value={draft.keywords.join(", ")}
@@ -90,16 +100,6 @@ export function ChannelsPage({ state }: { state: AppState }) {
                 .filter(Boolean),
             )
           }
-        />
-      </label>
-
-      <label className="field">
-        <span>Điểm liên quan tối thiểu (số từ khoá khớp)</span>
-        <input
-          type="number"
-          min={1}
-          value={draft.minRelevanceScore}
-          onChange={(e) => set("minRelevanceScore", Math.max(1, Number(e.target.value) || 1))}
         />
       </label>
 

@@ -31,6 +31,11 @@ export function createIeltsProfile(): ChannelProfile {
     name: "IELTS",
     platform: "tiktok",
     commentLanguage: "en",
+    topic:
+      "Anything related to the English language or learning English — IELTS, " +
+      "vocabulary, grammar, pronunciation, speaking, listening, reading, writing, " +
+      "study tips, or English used in any context. Be generous: if it touches " +
+      "English or learning English in any way, it is relevant.",
     keywords: [
       "ielts",
       "english",
@@ -69,6 +74,7 @@ export function createBlankProfile(id: string, name: string): ChannelProfile {
     name,
     platform: "tiktok",
     commentLanguage: "vi",
+    topic: "",
     keywords: [],
     relevanceMode: "soft",
     minRelevanceScore: 1,

@@ -1,4 +1,3 @@
-import { isRelevant } from "@/ai/relevance";
 import { TT } from "../selectors";
 import type { FindTargetResult, TiktokPageState } from "../messages";
 import {
@@ -79,18 +78,17 @@ export function extractCurrent(): Candidate | null {
 }
 
 /**
- * Lướt feed tìm video: đủ số bình luận, đúng chủ đề (lọc từ khoá), chưa comment.
+ * Lướt feed tìm video đủ số bình luận và có nội dung để Haiku xét.
+ * KHÔNG lọc từ khoá ở đây nữa — việc xét liên quan do Haiku làm ở background,
+ * để không bỏ sót video chỉ vì caption thiếu đúng từ khoá.
  */
 export async function findCommentTarget(opts: {
   skipKeys: string[];
   minComments: number;
   maxScrolls: number;
-  keywords: string[];
-  minRelevanceScore: number;
 }): Promise<FindTargetResult> {
   const skip = new Set(opts.skipKeys.map((k) => k.toLowerCase()));
   let lowComment = 0;
-  let offTopic = 0;
 
   await sleep(600);
 
@@ -119,10 +117,8 @@ export async function findCommentTarget(opts: {
       continue;
     }
 
-    // Bộ lọc thô, bắt rộng: caption + hashtag + author. Haiku xét lại ở background.
-    const haystack = `${cand.author} ${cand.caption} ${cand.hashtags.join(" ")}`;
-    if (!isRelevant(haystack, opts.keywords, opts.minRelevanceScore)) {
-      offTopic += 1;
+    // Cần có chút nội dung (caption/hashtag) để Haiku xét được.
+    if (!cand.caption && cand.hashtags.length === 0) {
       await goToNextVideo();
       continue;
     }
@@ -132,9 +128,8 @@ export async function findCommentTarget(opts: {
 
   return {
     ok: false,
-    error: `Đã lướt ${opts.maxScrolls} video nhưng không có video nào vừa đủ ${opts.minComments} bình luận vừa hợp chủ đề.`,
+    error: `Đã lướt ${opts.maxScrolls} video nhưng không có video nào đủ ${opts.minComments} bình luận.`,
     scanned: opts.maxScrolls,
     lowComment,
-    offTopic,
   };
 }

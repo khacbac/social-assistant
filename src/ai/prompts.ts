@@ -33,8 +33,9 @@ export function buildTiktokJudgeMessage(
     "",
     `Channel topic: ${topic}`,
     "",
-    "Decide if this video is genuinely related to the channel topic above.",
-    `- If it is NOT related, reply with exactly: ${SKIP_SENTINEL}`,
+    "Decide if this video relates to the channel topic above.",
+    "Be generous: if it touches the topic in any way, treat it as related. Only skip clearly unrelated videos.",
+    `- If it is NOT related at all, reply with exactly: ${SKIP_SENTINEL}`,
     language === "en"
       ? `- If it IS related, write ONE short, natural comment in ENGLISH (max ${maxChars} chars). Return only the comment.`
       : `- If it IS related, write ONE short, natural comment in VIETNAMESE (max ${maxChars} chars). Return only the comment.`,
