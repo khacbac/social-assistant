@@ -10,6 +10,16 @@ export interface VideoContext {
 /** Từ khoá AI trả về khi thấy video lệch chủ đề. */
 export const SKIP_SENTINEL = "SKIP";
 
+/** Shared, permissive relevance policy for both platforms. */
+const RELEVANCE_DIRECTIVE = [
+  "Decide whether this video is suitable for engaging from a channel with the topic above. Use broad, practical judgment rather than strict keyword matching.",
+  "Treat the topic and any keywords as guidance, not an exhaustive checklist. Accept direct or indirect connections, adjacent subjects, shared audiences, everyday applications, entertainment, and personal experiences that plausibly interest that audience.",
+  "Consider all available context together, including the creator/channel, title, caption, description, and hashtags. One reasonable connection is enough; the video does not need to focus entirely on the topic, and the creator does not need to specialize in it.",
+  "Do not reject solely because metadata is brief or missing, keywords are absent, the language differs, or the connection is uncertain. When in doubt, prefer engaging. If the topic is empty or too vague to apply, allow the video.",
+  "Skip only when the available context clearly shows that the video is unrelated and offers no reasonable connection to the intended audience.",
+  "For accepted videos, write a natural comment grounded in the available context. Do not invent unseen details or force a mention of the channel topic.",
+].join("\n");
+
 /** Câu trả lời của AI có phải "bỏ qua" không. */
 export function isSkip(text: string): boolean {
   return /^skip\b/i.test(text.trim());
@@ -33,8 +43,7 @@ export function buildTiktokJudgeMessage(
     "",
     `Channel topic: ${topic}`,
     "",
-    "Decide if this video relates to the channel topic above.",
-    "Be generous: if it touches the topic in any way, treat it as related. Only skip clearly unrelated videos.",
+    RELEVANCE_DIRECTIVE,
     `- If it is NOT related at all, reply with exactly: ${SKIP_SENTINEL}`,
     language === "en"
       ? `- If it IS related, write ONE short, natural comment in ENGLISH (max ${maxChars} chars). Return only the comment.`
@@ -71,8 +80,7 @@ export function buildYoutubeJudgeMessage(
     "",
     `Channel topic: ${topic}`,
     "",
-    "Decide if this video relates to the channel topic above.",
-    "Be generous: if it touches the topic in any way, treat it as related. Only skip clearly unrelated videos.",
+    RELEVANCE_DIRECTIVE,
     `- If it is NOT related at all, reply with exactly: ${SKIP_SENTINEL}`,
     language === "en"
       ? `- If it IS related, write ONE short, natural comment in ENGLISH (max ${maxChars} chars). Return only the comment.`
