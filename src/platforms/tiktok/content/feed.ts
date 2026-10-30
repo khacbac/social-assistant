@@ -1,5 +1,4 @@
 import { randInt } from "@/core/humanize";
-import { isRelevant } from "@/ai/relevance";
 import { TT } from "../selectors";
 import type { AutoFollowResult } from "../messages";
 import {
@@ -99,13 +98,10 @@ function cardFollowButton(card: Element | null): HTMLElement | null {
 }
 
 /**
- * Tự lướt For You, gặp creator đăng video HỢP CHỦ ĐỀ và CHƯA follow thì follow.
- * Mỗi lần gọi follow tối đa 1 người (giữ giãn cách tự nhiên).
+ * Tìm creator chưa follow để background xét ngữ nghĩa trước khi thực thi.
  */
-export async function autoFollow(opts: {
+export async function findFollowTarget(opts: {
   skipKeys: string[];
-  keywords: string[];
-  minRelevanceScore: number;
   maxScrolls: number;
 }): Promise<AutoFollowResult> {
   const skip = new Set(opts.skipKeys.map((k) => k.toLowerCase()));
@@ -121,11 +117,6 @@ export async function autoFollow(opts: {
       await goToNextVideo();
       continue;
     }
-    if (!isRelevant(`${author} ${caption}`, opts.keywords, opts.minRelevanceScore)) {
-      await goToNextVideo();
-      continue;
-    }
-
     const btn = cardFollowButton(card);
     if (!btn) {
       // Không có nút "+" khả dụng → có thể đã follow rồi → bỏ qua.
@@ -134,13 +125,23 @@ export async function autoFollow(opts: {
       continue;
     }
 
-    clickEl(btn);
-    await sleep(1200);
-    return { ok: true, handle };
+    return { ok: true, handle, caption, scanned: i + 1 };
   }
 
   return {
     ok: false,
-    error: `Đã lướt ${opts.maxScrolls} video nhưng không gặp creator hợp chủ đề chưa follow.`,
+    error: `Đã xem ${opts.maxScrolls} lượt nhưng không tìm thấy creator mới có nút follow khả dụng.`,
   };
+}
+
+/** Recheck identity after AI judgment before clicking. */
+export async function followCurrentCreator(handle: string): Promise<{ ok: boolean; error?: string }> {
+  const card = currentVideoCard();
+  const author = textOf(q(TT.author, card ?? document)).replace(/^@/, "").toLowerCase();
+  if (author !== handle.toLowerCase()) return { ok: false, error: "Video đã đổi trong lúc AI xét; bỏ qua follow." };
+  const btn = cardFollowButton(card);
+  if (!btn) return { ok: false, error: "Creator không còn nút follow khả dụng." };
+  clickEl(btn);
+  await sleep(1200);
+  return { ok: true };
 }

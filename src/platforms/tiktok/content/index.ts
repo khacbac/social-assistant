@@ -6,7 +6,7 @@
 import type { TiktokRequest } from "../messages";
 import { pageState, stateError, findCommentTarget } from "./context";
 import { prepareComment, commentStatus, createCommentSoft } from "./comment";
-import { scrollFeed, autoFollow } from "./feed";
+import { scrollFeed, findFollowTarget, followCurrentCreator } from "./feed";
 
 declare global {
   interface Window {
@@ -66,11 +66,11 @@ if (!window.__SA_TT_CONTENT__) {
               likeDelay: message.likeDelay,
             })),
           };
-        case "TT_AUTO_FOLLOW":
-          return await autoFollow({
+        case "TT_FOLLOW_CURRENT":
+          return await followCurrentCreator(message.handle);
+        case "TT_FIND_FOLLOW_TARGET":
+          return await findFollowTarget({
             skipKeys: message.skipKeys,
-            keywords: message.keywords,
-            minRelevanceScore: message.minRelevanceScore,
             maxScrolls: message.maxScrolls,
           });
         default:

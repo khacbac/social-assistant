@@ -2,7 +2,7 @@ import { sleep } from "@/core/humanize";
 import { log } from "@/core/log";
 import { updateState } from "@/core/storage";
 import { generate } from "@/ai/anthropic";
-import { buildTiktokJudgeMessage, isSkip, withLanguageDirective } from "@/ai/prompts";
+import { buildTiktokFollowJudgeMessage, buildTiktokJudgeMessage, isSkip, withLanguageDirective } from "@/ai/prompts";
 import { openWorkTab, sendToTab } from "@/background/messaging";
 import type { PlatformAdapter, JobContext } from "@/platforms/types";
 import type { AutoFollowResult, FindTargetResult, PingResponse } from "./messages";
@@ -137,7 +137,7 @@ async function runScroll(_ctx: JobContext): Promise<string> {
   return `Đã lướt ${res.scrolled ?? 0} video, thả tim ${res.likedCount ?? 0}.`;
 }
 
-async function runFollow({ profile }: JobContext): Promise<string> {
+async function runFollow({ profile, ai }: JobContext): Promise<string> {
   const tab = await openWorkTab("tiktok", HOME, true);
   const tabId = requireTabId(tab);
   await sleep(2500);
@@ -146,21 +146,39 @@ async function runFollow({ profile }: JobContext): Promise<string> {
   if (ping.state !== "ok") throw new Error("TikTok chưa sẵn sàng (đã đăng nhập chưa?).");
 
   await log("info", "Đang lướt For You tìm creator hợp chủ đề chưa follow…");
-  const res = await sendToTab<AutoFollowResult>(tabId, {
-    type: "TT_AUTO_FOLLOW",
-    skipKeys: profile.followedKeys,
-    keywords: profile.keywords,
-    minRelevanceScore: profile.minRelevanceScore,
-    maxScrolls: MAX_SCROLLS,
-  });
-  if (!res.ok) throw new Error(res.error);
-
-  await updateState((draft) => {
-    const p = draft.profiles.find((x) => x.id === profile.id);
-    if (p) p.followedKeys = [res.handle, ...p.followedKeys.filter((k) => k !== res.handle)];
-  });
-
-  return `Đã follow @${res.handle}.`;
+  const skipKeys = [...profile.followedKeys];
+  const topic = profile.topic.trim() || channelTopic(profile.name, profile.keywords);
+  let scanned = 0;
+  let judged = 0;
+  while (scanned < MAX_SCROLLS && judged < MAX_AI_JUDGE) {
+    const res = await sendToTab<AutoFollowResult>(tabId, {
+      type: "TT_FIND_FOLLOW_TARGET",
+      skipKeys,
+      maxScrolls: MAX_SCROLLS - scanned,
+    });
+    if (!res.ok) return res.error;
+    scanned += res.scanned;
+    judged += 1;
+    skipKeys.push(res.handle);
+    await log("info", `AI đang xét follow @${res.handle} theo ngữ nghĩa…`);
+    const decision = await generate(
+      { ...ai, maxChars: 16 },
+      "Evaluate creator relevance generously. Return only ALLOW or SKIP, following the decision policy provided.",
+      buildTiktokFollowJudgeMessage({ author: res.handle, caption: res.caption }, topic),
+    );
+    if (decision.trim().toUpperCase() !== "ALLOW") {
+      await log("info", `AI bỏ qua @${res.handle}: ${decision}`);
+      continue;
+    }
+    const followed = await sendToTab<SimpleResult>(tabId, { type: "TT_FOLLOW_CURRENT", handle: res.handle });
+    if (!followed.ok) throw new Error(followed.error || "Follow thất bại.");
+    await updateState((draft) => {
+      const p = draft.profiles.find((x) => x.id === profile.id);
+      if (p) p.followedKeys = [res.handle, ...p.followedKeys.filter((k) => k !== res.handle)];
+    });
+    return `Đã follow @${res.handle}.`;
+  }
+  return `Đã xem ${scanned} video, AI xét ${judged} creator nhưng chưa chọn được người để follow. Thử lại lượt sau.`;
 }
 
 export const tiktokAdapter: PlatformAdapter = {

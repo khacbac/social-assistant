@@ -29,7 +29,7 @@ export type FindTargetResult =
 
 /** Kết quả auto-follow từ For You. */
 export type AutoFollowResult =
-  | { ok: true; handle: string }
+  | { ok: true; handle: string; caption: string; scanned: number }
   | { ok: false; error: string };
 
 /** Yêu cầu bg → content. */
@@ -41,15 +41,14 @@ export type TiktokRequest =
       minComments: number;
       maxScrolls: number;
     }
+  | { type: "TT_FOLLOW_CURRENT"; handle: string }
   | { type: "TT_PREPARE_COMMENT" }
   | { type: "TT_COMMENT_STATUS"; beforeFp: string }
   | { type: "TT_CREATE_COMMENT"; text: string; postKey: string }
   | { type: "TT_SCROLL_FEED"; rounds: number; autoLike: boolean; likeDelay: number }
   | {
-      type: "TT_AUTO_FOLLOW";
+      type: "TT_FIND_FOLLOW_TARGET";
       skipKeys: string[];
-      keywords: string[];
-      minRelevanceScore: number;
       maxScrolls: number;
     };
 
