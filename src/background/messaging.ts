@@ -30,6 +30,22 @@ export async function openWorkTab(
   return tab;
 }
 
+/** Đóng tab làm việc của 1 nền tảng (nếu đang mở) và xoá id đã lưu. */
+export async function closeWorkTab(platform: PlatformId): Promise<void> {
+  const state = await getState();
+  const tabId = state.workTabId[platform];
+  if (tabId != null) {
+    try {
+      await chrome.tabs.remove(tabId);
+    } catch {
+      // tab đã bị đóng trước đó -> bỏ qua
+    }
+  }
+  await updateState((draft) => {
+    draft.workTabId[platform] = null;
+  });
+}
+
 /** Đưa tab lên trước (cần cho đường gõ CDP yêu cầu tab hiển thị). */
 export async function focusTab(tabId: number): Promise<void> {
   const tab = await chrome.tabs.get(tabId);

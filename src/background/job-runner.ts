@@ -1,6 +1,7 @@
 import { getState } from "@/core/storage";
 import { log } from "@/core/log";
 import { getAdapter } from "@/platforms/registry";
+import { closeWorkTab } from "./messaging";
 import type { JobKind, PlatformId } from "@/core/types";
 
 const JOB_LABELS: Record<JobKind, string> = {
@@ -46,6 +47,12 @@ export async function runJob(platform: PlatformId, kind: JobKind): Promise<void>
       `${JOB_LABELS[kind]} ${platform} lỗi: ${(err as Error).message}`,
     );
   } finally {
+    // Xong việc -> đóng tab làm việc cho gọn (tab sẽ mở lại ở lượt sau).
+    try {
+      await closeWorkTab(platform);
+    } catch {
+      // không chặn vòng lặp nếu đóng tab lỗi
+    }
     running = false;
   }
 }
